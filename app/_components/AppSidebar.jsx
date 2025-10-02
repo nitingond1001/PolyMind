@@ -10,9 +10,57 @@ import {
 } from "@/components/ui/sidebar"
 import { Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
+import { useEffect, useState } from "react"
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip"
+
+// Fancy Dark Mode Toggle
+function ThemeToggle() {
+    const { theme, setTheme } = useTheme()
+    const [mounted, setMounted] = useState(false)
+
+    useEffect(() => setMounted(true), [])
+    if (!mounted) return null
+
+    return (
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <button
+                        onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+                        className="relative flex items-center w-16 h-8 rounded-full transition-all duration-500 
+                                   bg-gray-300 dark:bg-gray-700 shadow-inner hover:scale-105 active:scale-95"
+                    >
+                        {/* Moving circle */}
+                        <span
+                            className={`absolute top-1 left-1 w-6 h-6 rounded-full flex items-center justify-center
+                                        bg-white dark:bg-black shadow-md transform transition-all duration-500
+                                        ${theme === "dark" ? "translate-x-8" : "translate-x-0"}`}
+                        >
+                            {theme === "light" ? (
+                                <Sun className="w-4 h-4 text-gray-500 transition-all duration-300" />
+                            ) : (
+                                <Moon className="w-4 h-4 text-indigo-400 transition-all duration-300" />
+                            )}
+                        </span>
+
+                        {/* Background glow */}
+                        <span
+                            className={`absolute inset-0 rounded-full blur-md transition-opacity duration-500
+                                        ${theme === "light" ? "bg-gray-500/40 opacity-70" : "bg-indigo-500/40 opacity-70"}`}
+                        />
+                    </button>
+                </TooltipTrigger>
+            </Tooltip>
+        </TooltipProvider>
+    )
+}
 
 export function AppSidebar() {
-    const { theme, setTheme } = useTheme()
     return (
         <Sidebar>
             <SidebarHeader>
@@ -24,9 +72,9 @@ export function AppSidebar() {
                             />
                             <h2 className="font-bold text-xl">PolyMind</h2>
                         </div>
+                        {/* 🔥 Replaced with fancy ThemeToggle */}
                         <div>
-                            {theme === 'light' ? <Button variant={'ghost'} onClick={() => setTheme('dark')}><Sun /></Button>
-                                : <Button variant={'ghost'} onClick={() => setTheme('light')}><Moon /></Button>}
+                            <ThemeToggle />
                         </div>
                     </div>
                     <Button className='mt-7 w-full' size="lg">+ New Chat</Button>
