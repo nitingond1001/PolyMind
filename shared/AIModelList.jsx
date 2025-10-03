@@ -11,7 +11,7 @@ export default [
       { name: "GPT 4.1", premium: true, id: "gpt-4.1" },
       { name: "GPT 5 Nano", premium: false, id: "gpt-5-nano" },
       { name: "GPT 5 Mini", premium: false, id: "gpt-5-mini" },
-      { name: "GPT 5", premium: true, id: "gpt-3.5" },
+      { name: "GPT 5", premium: true, id: "gpt-5" },
     ],
   },
   {
