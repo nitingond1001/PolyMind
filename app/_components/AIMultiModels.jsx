@@ -22,21 +22,21 @@ function AIMultiModels() {
     }
 
     return (
-        <div className='flex flex-1 h-[75vh]'>
+        <div className='flex flex-1 h-[75vh] border-t border-b'>
             {aiModelList.map((model, index) => (
-                <div className={`flex flex-col border-r h-full overflow-auto ${model.enable ? 'flex-1 min-w-[400px]' : 'w-[100px] flex-none'}`}>
+                <div key={model.model || index} className={`flex flex-col border-r h-full overflow-auto ${model.enable ? 'flex-1 min-w-[400px]' : 'w-[100px] flex-none'}`}>
                     <div key={index} className='flex w-full h-[70px] items-center justify-between border-b p-4'>
                         <div className='flex items-center gap-4'>
                             <Image src={model.icon} alt={model.model}
                                 width={24} height={24}
                             />
                             {model.enable && <Select>
-                                <SelectTrigger className="w-[180px]">
+                                <SelectTrigger className="w-[180px] cursor-pointer">
                                     <SelectValue placeholder={model.subModel[0].name} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {model.subModel.map((subModel, index) => (
-                                        <SelectItem key={index} value={subModel.name}>
+                                        <SelectItem key={index} value={subModel.name} className='cursor-pointer'>
                                             {subModel.name}
                                         </SelectItem>
                                     ))}
@@ -47,12 +47,13 @@ function AIMultiModels() {
                         <div>
                             {model.enable ? <Switch checked={model.enable}
                                 onCheckedChange={(v) => onToggleChange(model.model, v)}
+                                className='cursor-pointer'
                             />
                                 : <MessageSquare onClick={() => onToggleChange(model.model, true)} />}
                         </div>
                     </div>
                     {model.premium && model.enable && <div className='flex items-center justify-center h-full'>
-                        <Button> <Lock />Upgrade to unlock</Button>
+                        <Button className='cursor-pointer'> <Lock />Upgrade to unlock</Button>
                     </div>}
                 </div>
             ))}

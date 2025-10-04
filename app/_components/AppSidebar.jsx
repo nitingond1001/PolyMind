@@ -8,7 +8,7 @@ import {
     SidebarGroup,
     SidebarHeader,
 } from "@/components/ui/sidebar"
-import { Moon, Sun } from "lucide-react"
+import { Moon, Sun, User2, Zap } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
 import {
@@ -17,6 +17,8 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { SignInButton, useUser } from "@clerk/nextjs"
+import UsageCreditProgress from "./UsageCreditProgress"
 
 // Fancy Dark Mode Toggle
 function ThemeToggle() {
@@ -33,7 +35,7 @@ function ThemeToggle() {
                     <button
                         onClick={() => setTheme(theme === "light" ? "dark" : "light")}
                         className="relative flex items-center w-16 h-8 rounded-full transition-all duration-500 
-                                   bg-gray-300 dark:bg-gray-700 shadow-inner hover:scale-105 active:scale-95"
+                                   bg-gray-300 dark:bg-gray-700 shadow-inner hover:scale-105 active:scale-95 cursor-pointer"
                     >
                         {/* Moving circle */}
                         <span
@@ -61,6 +63,7 @@ function ThemeToggle() {
 }
 
 export function AppSidebar() {
+    const { user } = useUser();
     return (
         <Sidebar>
             <SidebarHeader>
@@ -77,20 +80,35 @@ export function AppSidebar() {
                             <ThemeToggle />
                         </div>
                     </div>
-                    <Button className='mt-7 w-full' size="lg">+ New Chat</Button>
+                    {user?
+                        <Button className='mt-7 w-full cursor-pointer' size="lg">+ New Chat</Button>:
+                        <SignInButton>
+                            <Button className='mt-7 w-full' size="lg">+ New Chat</Button>
+                        </SignInButton>}
                 </div>
             </SidebarHeader>
             <SidebarContent>
                 <SidebarGroup>
                     <div className={'p-3'}>
                         <h2 className="font-bold text-lg">Chat</h2>
-                        <p className="text-sm text-gray-400">Sign in to start chatting with multiple AI model</p>
+                        {!user && <p className="text-sm text-gray-400">Sign in to start chatting with multiple AI model</p>}
                     </div>
                 </SidebarGroup>
             </SidebarContent>
             <SidebarFooter>
                 <div className="p-3 mb-10">
-                    <Button className={'w-full'} size={'lg'}>Sign In/Sign Up</Button>
+                    {!user ? <SignInButton mode="modal">
+                        <Button className={'w-full'} size={'lg'}>Sign In/Sign Up</Button>
+                    </SignInButton>
+                        :
+                        <div>
+                            <UsageCreditProgress />
+                            <Button className='w-full mb-3 cursor-pointer'><Zap /> Upgrade Plan</Button>
+                            <Button className="flex cursor-pointer" variant={'ghost'}>
+                                <User2 /> <h2>Settings</h2>
+                            </Button>
+                        </div>
+                    }
                 </div>
             </SidebarFooter>
         </Sidebar>
