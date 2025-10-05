@@ -10,24 +10,36 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Switch } from '@/components/ui/switch'
-import { Lock, MessageSquare } from 'lucide-react'
+import { Loader, Lock, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SelectLabel } from '@radix-ui/react-select'
 import { AISelectedModelContext } from '@/context/AISelectedModelContext'
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/config/FirebaseConfig'
 import { useUser } from '@clerk/nextjs'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 function AIMultiModels() {
     const { user } = useUser();
     const [aiModelList, setAIModelList] = useState(AIModelList)
-    const { aiSelectedModels, setAISelectedModels } = useContext(AISelectedModelContext);
-    console.log("aiSelectedModels", aiSelectedModels)
+    const { aiSelectedModels, setAISelectedModels, messages, setMessages } = useContext(AISelectedModelContext);
+
     const onToggleChange = (model, value) => {
         setAIModelList((prev) =>
             prev.map((m) =>
                 m.model === model ? { ...m, enable: value } : m))
+
+        setAISelectedModels((prev) => ({
+            ...prev,
+            [model]: {
+                ...(prev?.[model] ?? {}),
+                enable: value
+            }
+        }))
     }
+
+    console.log(aiSelectedModels);
 
     const onSelectValue = async (parentModel, value) => {
         setAISelectedModels(prev => ({
@@ -36,11 +48,7 @@ function AIMultiModels() {
                 modelId: value
             }
         }))
-        // Update to Firebase Database
-        const docRef = doc(db, "users", user?.primaryEmailAddress?.emailAddress);
-        await updateDoc(docRef, {
-            selectedModelPref: aiSelectedModels
-        })
+        
     }
 
     return (
@@ -108,8 +116,34 @@ function AIMultiModels() {
                     {model.premium && model.enable && <div className='flex items-center justify-center h-full'>
                         <Button className='cursor-pointer'> <Lock />Upgrade to unlock</Button>
                     </div>}
+
+                    {model.enable && <div className='flex-1 p-4'>
+                        <div className='flex-1 p-4 space-y-2'>
+                            {messages[model.model]?.map((m, i) => (
+                                <div
+                                    key={m.id ?? i}
+                                    className={`p-2 rounded-md ${m.role == 'user' ?
+                                        "bg-indigo-100 text-indigo-900"
+                                        : "bg-gray-100 text-gray-900"
+                                        }`}
+                                >
+                                    {m.role == 'assistant' && (
+                                        <span className='text-sm text-gray-400'>{m.model ?? model.model}</span>
+                                    )}
+                                    <div className='flex gap-3 items-center'>
+                                        {m.content == 'Thinking' && <><Loader className='animate-spin' /><span>Loading..</span></>}</div>
+                                    {m.content !== 'Thinking' &&
+                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            {m.content}
+                                        </ReactMarkdown>
+                                    }
+                                </div>
+                            ))}
+                        </div>
+                    </div>}
                 </div>
             ))}
+
         </div>
     )
 }
