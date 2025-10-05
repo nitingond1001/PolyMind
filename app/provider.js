@@ -5,7 +5,7 @@ import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { AppSidebar } from './_components/AppSidebar'
 import AppHeader from './_components/AppHeader'
 import { useUser } from '@clerk/nextjs'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/config/FirebaseConfig'
 import { AISelectedModelContext } from '@/context/AISelectedModelContext'
 import { DefaultModel } from '@/shared/AIModelsShared'
@@ -16,11 +16,28 @@ function Provider({ children, ...props }) {
   const { user } = useUser();
   const [aiSelectedModels, setAISelectedModels] = useState(DefaultModel);
   const [userDetail, setUserDetail] = useState();
+  const [messages, setMessages] = useState({})
   useEffect(() => {
     if (user) {
       CreateNewuser();
     }
   }, [user])
+
+  useEffect(() => {
+    if (aiSelectedModels) {
+      // Update to Firebase Database
+      updateAIModelSelectionPref();
+    }
+  }, [aiSelectedModels]);
+
+  const updateAIModelSelectionPref = async () => {
+    // Update to Firebase Database
+    const docRef = doc(db, "users", user?.primaryEmailAddress?.emailAddress);
+    await updateDoc(docRef, {
+      selectedModelPref: aiSelectedModels
+    })
+  }
+
   const CreateNewuser = async () => {
     // If user exist?
     const userRef = doc(db, "users", user?.primaryEmailAddress?.emailAddress);
@@ -29,7 +46,7 @@ function Provider({ children, ...props }) {
     if (userSnap.exists()) {
       console.log('Existing User');
       const userInfo = userSnap.data();
-      setAISelectedModels(userInfo?.selectedModelPref);
+      setAISelectedModels(userInfo?.selectedModelPref ?? DefaultModel);
       setUserDetail(userInfo);
       return;
     } else {
@@ -55,7 +72,7 @@ function Provider({ children, ...props }) {
       enableSystem
       disableTransitionOnChange>
       <UserDetailContext.Provider value={{ userDetail, setUserDetail }}>
-        <AISelectedModelContext.Provider value={{ aiSelectedModels, setAISelectedModels }}>
+        <AISelectedModelContext.Provider value={{ aiSelectedModels, setAISelectedModels, messages, setMessages }}>
           <SidebarProvider>
             <AppSidebar />
 
