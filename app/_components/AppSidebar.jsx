@@ -19,6 +19,10 @@ import {
 } from "@/components/ui/tooltip"
 import { SignInButton, useUser } from "@clerk/nextjs"
 import UsageCreditProgress from "./UsageCreditProgress"
+import { collection, doc, getDocs, query, where } from "firebase/firestore"
+import { db } from "@/config/FirebaseConfig"
+import moment from "moment"
+import Link from "next/link"
 
 // Fancy Dark Mode Toggle
 function ThemeToggle() {
@@ -64,6 +68,38 @@ function ThemeToggle() {
 
 export function AppSidebar() {
     const { user } = useUser();
+    const [chatHistory, setChatHistory] = useState([]);
+
+    useEffect(() => {
+        user && GetChatHistory();
+    }, [user])
+
+    const GetChatHistory = async () => {
+        const q = query(collection(db, "chatHistory"), where("userEmail", '==', user?.primaryEmailAddress?.emailAddress));
+        const querySnapshot = await getDocs(q);
+
+        querySnapshot.forEach((doc) => {
+            console.log(doc.id, doc.data());
+            setChatHistory(prev => [...prev, doc.data()])
+        })
+    }
+
+    const GetLastUserMessageFromChat = (chat) => {
+        const allMessages = Object.values(chat.messages).flat();
+        const userMessages = allMessages.filter(msg => msg.role == 'user');
+
+        const lastUserMsg = userMessages[userMessages.length - 1].content || null;
+
+        const lastUpdated = chat.lastUpdated || Date.now();
+        const formattedDate = moment(lastUpdated).fromNow();
+
+        return {
+            chatId: chat.chatId,
+            message: lastUserMsg,
+            lastMsgDate: formattedDate
+        }
+    }
+
     return (
         <Sidebar>
             <SidebarHeader>
@@ -80,8 +116,10 @@ export function AppSidebar() {
                             <ThemeToggle />
                         </div>
                     </div>
-                    {user?
-                        <Button className='mt-7 w-full cursor-pointer' size="lg">+ New Chat</Button>:
+                    {user ?
+                        <Link href={'/'}>
+                            <Button className='mt-7 w-full cursor-pointer' size="lg">+ New Chat</Button>
+                        </Link> :
                         <SignInButton>
                             <Button className='mt-7 w-full' size="lg">+ New Chat</Button>
                         </SignInButton>}
@@ -92,6 +130,29 @@ export function AppSidebar() {
                     <div className={'p-3'}>
                         <h2 className="font-bold text-lg">Chat</h2>
                         {!user && <p className="text-sm text-gray-400">Sign in to start chatting with multiple AI model</p>}
+
+                        {chatHistory.map((chat, index) => {
+                            const { message, lastMsgDate } = GetLastUserMessageFromChat(chat);
+
+                            return (
+                                <Link href={'?chatId=' + chat.chatId} key={index}>
+                                    {/* Hover area */}
+                                    <div
+                                        className="p-2 rounded-md transition-colors duration-200 hover:bg-gray-300 dark:hover:bg-gray-800 cursor-pointer"
+                                    >
+                                        <h2 className="text-xs text-gray-400">{lastMsgDate}</h2>
+                                        <h2 className="text-sm text-gray-800 dark:text-gray-200 truncate line-clamp-1">
+                                            {message}
+                                        </h2>
+                                    </div>
+
+                                    {/* Separator line outside hover area */}
+                                    <hr className="my-2 border-gray-200 dark:border-gray-700" />
+                                </Link>
+                            );
+                        })}
+
+
                     </div>
                 </SidebarGroup>
             </SidebarContent>
