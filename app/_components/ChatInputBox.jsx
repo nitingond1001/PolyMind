@@ -9,10 +9,11 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/config/FirebaseConfig';
 import { useUser } from '@clerk/nextjs';
 import { useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 
 function ChatInputBox() {
     const [userInput, setUserInput] = useState("");
-    const { aiSelectedModels, setAISelectedModels, messages, setMessages } = useContext(AISelectedModelContext);
+    const { aiSelectedModels, messages, setMessages } = useContext(AISelectedModelContext);
     const { user } = useUser();
     const [chatId, setChatId] = useState();
     const params = useSearchParams();
@@ -22,15 +23,27 @@ function ChatInputBox() {
         if (chatId_) {
             setChatId(chatId_);
             GetMessages(chatId_);
-        }
-        else {
+        } else {
             setMessages([]);
-            setChatId(uuidv4())
+            setChatId(uuidv4());
         }
     }, [params])
 
     const handleSend = async () => {
         if (!userInput.trim()) return;
+
+        // Call only if user free
+        //Deduct and check Token Limit
+        const result = await axios.post('/api/user-ramaining-msg', {
+            token: 1
+        });
+
+        const remainingToken = result?.data?.remainingToken;
+        if (remainingToken <= 0) {
+            console.log("Limit Exceed");
+            toast.error('You have exceeded daily maximum limit');
+            return;
+        }
 
         // 1. Add user message to all enabled models
         setMessages((prev) => {
@@ -43,18 +56,17 @@ function ChatInputBox() {
                     ];
                 }
             });
-
             return updated;
         });
 
-        const currentInput = userInput; //Capture before reset
+        const currentInput = userInput;
         setUserInput("");
 
-        // 2.Fetch response from each enabled model
+        // 2. Fetch response from each enabled model
         Object.entries(aiSelectedModels).forEach(async ([parentModel, modelInfo]) => {
             if (!modelInfo.modelId || aiSelectedModels[parentModel].enable == false) return;
 
-            //Add loading placeholder before API call
+            // Add loading placeholder
             setMessages((prev) => ({
                 ...prev,
                 [parentModel]: [
@@ -72,7 +84,7 @@ function ChatInputBox() {
 
                 const { aiResponse, model } = result.data;
 
-                // 3.Add AI response to that model's messages
+                // 3. Add AI response
                 setMessages((prev) => {
                     const updated = [...(prev[parentModel] ?? [])];
                     const loadingIndex = updated.findIndex((m) => m.loading);
@@ -85,7 +97,6 @@ function ChatInputBox() {
                             loading: false,
                         };
                     } else {
-                        //fallback if no loading msg found
                         updated.push({
                             role: "assistant",
                             content: aiResponse,
@@ -117,23 +128,28 @@ function ChatInputBox() {
 
     const SaveMessages = async () => {
         const docRef = doc(db, 'chatHistory', chatId);
-
         await setDoc(docRef, {
             chatId: chatId,
             userEmail: user?.primaryEmailAddress?.emailAddress,
             messages: messages,
             lastUpdated: Date.now()
-        })
+        });
     }
 
     const GetMessages = async (chatId) => {
-        console.log("INSDE", chatId)
         const docRef = doc(db, 'chatHistory', chatId);
         const docSnap = await getDoc(docRef);
-        console.log(docSnap.data());
         const docData = docSnap.data();
-        setMessages(docData.messages)
+        if (docData?.messages) setMessages(docData.messages);
     }
+
+    // ✅ Added this function to handle "Enter" key press
+    const handleKeyDown = (event) => {
+        if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            handleSend();
+        }
+    };
 
     return (
         <div className='relative min-h-screen'>
@@ -141,14 +157,17 @@ function ChatInputBox() {
             <div>
                 <AIMultiModels />
             </div>
+
             {/* Fixed Chat Input */}
             <div className='fixed bottom-0 left-0 w-full flex justify-center px-4 pb-4'>
                 <div className='w-full border rounded-xl shadow-md max-w-2xl p-4 bg-background'>
-                    <input type='text'
+                    <input
+                        type='text'
                         placeholder='Ask me anything...'
                         className='border-0 outline-none w-full'
                         value={userInput}
                         onChange={(event) => setUserInput(event.target.value)}
+                        onKeyDown={handleKeyDown} // ✅ Trigger send on Enter
                     />
                     <div className='mt-3 flex justify-between items-center'>
                         <Button className='cursor-pointer' variant={'ghost'} size={'icon'}>

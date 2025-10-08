@@ -10,10 +10,9 @@ import {
 } from "@/components/ui/sidebar"
 import { Moon, Sun, User2, Zap } from "lucide-react"
 import { useTheme } from "next-themes"
-import { useEffect, useState } from "react"
+import { useContext, useEffect, useState } from "react"
 import {
     Tooltip,
-    TooltipContent,
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip"
@@ -21,8 +20,9 @@ import { SignInButton, useUser } from "@clerk/nextjs"
 import UsageCreditProgress from "./UsageCreditProgress"
 import { collection, doc, getDocs, query, where } from "firebase/firestore"
 import { db } from "@/config/FirebaseConfig"
-import moment from "moment"
 import Link from "next/link"
+import axios from "axios"
+import { AISelectedModelContext } from "@/context/AISelectedModelContext"
 
 // Fancy Dark Mode Toggle
 function ThemeToggle() {
@@ -41,7 +41,6 @@ function ThemeToggle() {
                         className="relative flex items-center w-16 h-8 rounded-full transition-all duration-500 
                                    bg-gray-300 dark:bg-gray-700 shadow-inner hover:scale-105 active:scale-95 cursor-pointer"
                     >
-                        {/* Moving circle */}
                         <span
                             className={`absolute top-1 left-1 w-6 h-6 rounded-full flex items-center justify-center
                                         bg-white dark:bg-black shadow-md transform transition-all duration-500
@@ -54,7 +53,6 @@ function ThemeToggle() {
                             )}
                         </span>
 
-                        {/* Background glow */}
                         <span
                             className={`absolute inset-0 rounded-full blur-md transition-opacity duration-500
                                         ${theme === "light" ? "bg-gray-500/40 opacity-70" : "bg-indigo-500/40 opacity-70"}`}
@@ -69,35 +67,53 @@ function ThemeToggle() {
 export function AppSidebar() {
     const { user } = useUser();
     const [chatHistory, setChatHistory] = useState([]);
+    const [freeMsgCount, setFreeMsgCount] = useState(0);
+    // const [remainingToken, setRemainingToken] = useState(0);
+    const { aiSelectedModels, setAISelectedModels, messages, setMessages } = useContext(AISelectedModelContext);
+
 
     useEffect(() => {
         user && GetChatHistory();
     }, [user])
 
+    useEffect(()=>{
+        GetRemainingTokenMsgs();
+    }, [messages])
+
     const GetChatHistory = async () => {
-        const q = query(collection(db, "chatHistory"), where("userEmail", '==', user?.primaryEmailAddress?.emailAddress));
+        const q = query(
+            collection(db, "chatHistory"),
+            where("userEmail", "==", user?.primaryEmailAddress?.emailAddress)
+        );
+
         const querySnapshot = await getDocs(q);
 
-        querySnapshot.forEach((doc) => {
-            console.log(doc.id, doc.data());
-            setChatHistory(prev => [...prev, doc.data()])
-        })
-    }
+        const chats = querySnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(chat => {
+                const messages = chat.messages ? Object.values(chat.messages).flat() : [];
+                return messages.some(msg => msg.role === 'user');
+            });
+
+        setChatHistory(chats);
+    };
 
     const GetLastUserMessageFromChat = (chat) => {
-        const allMessages = Object.values(chat.messages).flat();
-        const userMessages = allMessages.filter(msg => msg.role == 'user');
+        const allMessages = chat.messages ? Object.values(chat.messages).flat() : [];
+        const userMessages = allMessages.filter(msg => msg.role === 'user');
 
-        const lastUserMsg = userMessages[userMessages.length - 1].content || null;
-
-        const lastUpdated = chat.lastUpdated || Date.now();
-        const formattedDate = moment(lastUpdated).fromNow();
+        const lastUserMsg = userMessages[userMessages.length - 1]?.content || null;
 
         return {
-            chatId: chat.chatId,
-            message: lastUserMsg,
-            lastMsgDate: formattedDate
-        }
+            chatId: chat.id,
+            message: lastUserMsg
+        };
+    };
+
+    const GetRemainingTokenMsgs = async () => {
+        const result = await axios.post('/api/user-ramaining-msg');
+        console.log(result);
+        setFreeMsgCount(result?.data?.remainingToken);
     }
 
     return (
@@ -111,7 +127,6 @@ export function AppSidebar() {
                             />
                             <h2 className="font-bold text-xl">PolyMind</h2>
                         </div>
-                        {/* 🔥 Replaced with fancy ThemeToggle */}
                         <div>
                             <ThemeToggle />
                         </div>
@@ -132,27 +147,21 @@ export function AppSidebar() {
                         {!user && <p className="text-sm text-gray-400">Sign in to start chatting with multiple AI model</p>}
 
                         {chatHistory.map((chat, index) => {
-                            const { message, lastMsgDate } = GetLastUserMessageFromChat(chat);
+                            const { message } = GetLastUserMessageFromChat(chat);
 
                             return (
-                                <Link href={'?chatId=' + chat.chatId} key={index}>
-                                    {/* Hover area */}
+                                <Link href={'?chatId=' + chat.id} key={index}>
                                     <div
                                         className="p-2 rounded-md transition-colors duration-200 hover:bg-gray-300 dark:hover:bg-gray-800 cursor-pointer"
                                     >
-                                        <h2 className="text-xs text-gray-400">{lastMsgDate}</h2>
                                         <h2 className="text-sm text-gray-800 dark:text-gray-200 truncate line-clamp-1">
                                             {message}
                                         </h2>
                                     </div>
-
-                                    {/* Separator line outside hover area */}
                                     <hr className="my-2 border-gray-200 dark:border-gray-700" />
                                 </Link>
                             );
                         })}
-
-
                     </div>
                 </SidebarGroup>
             </SidebarContent>
@@ -163,7 +172,7 @@ export function AppSidebar() {
                     </SignInButton>
                         :
                         <div>
-                            <UsageCreditProgress />
+                            <UsageCreditProgress remainingToken={freeMsgCount} />
                             <Button className='w-full mb-3 cursor-pointer'><Zap /> Upgrade Plan</Button>
                             <Button className="flex cursor-pointer" variant={'ghost'}>
                                 <User2 /> <h2>Settings</h2>
