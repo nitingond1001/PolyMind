@@ -19,11 +19,13 @@ import { db } from '@/config/FirebaseConfig'
 import { useUser } from '@clerk/nextjs'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useSearchParams } from 'next/navigation'
 
 function AIMultiModels() {
     const { user } = useUser();
     const [aiModelList, setAIModelList] = useState(AIModelList)
     const { aiSelectedModels, setAISelectedModels, messages, setMessages } = useContext(AISelectedModelContext);
+
 
     const onToggleChange = (model, value) => {
         setAIModelList((prev) =>
@@ -48,7 +50,7 @@ function AIMultiModels() {
                 modelId: value
             }
         }))
-        
+
     }
 
     return (
@@ -132,9 +134,9 @@ function AIMultiModels() {
                                     )}
                                     <div className='flex gap-3 items-center'>
                                         {m.content == 'Thinking' && <><Loader className='animate-spin' /><span>Loading..</span></>}</div>
-                                    {m.content !== 'Thinking' &&
-                                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                            {m.content}
+                                    {m?.content !== 'Thinking' &&
+                                        m?.content && <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                            {m?.content}
                                         </ReactMarkdown>
                                     }
                                 </div>
